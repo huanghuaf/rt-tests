@@ -30,9 +30,9 @@ prefix  ?= /usr/local
 bindir  ?= $(prefix)/bin
 mandir	?= $(prefix)/share/man
 
-CFLAGS ?= -Wall -Wno-nonnull
-CPPFLAGS += -D_GNU_SOURCE -Isrc/include
-LDFLAGS ?=
+CFLAGS ?= -Wall -Wno-nonnull -static
+CPPFLAGS += -D_GNU_SOURCE -Isrc/include -Iusr/include
+LDFLAGS ?=-Lusr/lib
 
 PYLIB  ?= $(shell python3 -c 'import distutils.sysconfig;  print (distutils.sysconfig.get_python_lib())')
 
@@ -98,7 +98,7 @@ VPATH	+= src/pmqtest:
 VPATH	+= src/lib:
 VPATH	+= src/hackbench:
 VPATH	+= src/sched_deadline:
-VPATH	+= src/queuelat:	
+VPATH	+= src/queuelat:
 VPATH	+= src/ssdd:
 VPATH	+= src/oslat:
 
