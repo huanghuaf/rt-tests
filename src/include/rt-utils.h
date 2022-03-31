@@ -41,6 +41,7 @@ void disable_trace_mark(void);
 #define MSEC_PER_SEC		1000
 #define USEC_PER_SEC		1000000
 #define NSEC_PER_SEC		1000000000
+#define NSEC_PER_USEC		1000
 #define USEC_TO_NSEC(u)		((u) * 1000)
 #define USEC_TO_SEC(u)		(u) / USEC_PER_SEC)
 #define NSEC_TO_USEC(n)		((n) / 1000)

@@ -681,7 +681,8 @@ static void *timerthread(void *param)
 
 		case MODE_CLOCK_NANOSLEEP:
 			if (par->timermode == TIMER_ABSTIME) {
-				tracemark("start sleep, TID: %d, time:%lu.%lu\n", stat->tid, now.tv_sec, now.tv_nsec);
+				tracemark("start sleep, TID: %d, time:%lu.%lu\n",
+					stat->tid, now.tv_sec, (now.tv_nsec / NSEC_PER_USEC));
 				ret = clock_nanosleep(par->clock, TIMER_ABSTIME,
 						      &next, NULL);
 				if (ret != 0) {
@@ -696,7 +697,8 @@ static void *timerthread(void *param)
 						warn("clock_gettime() failed: %s", strerror(errno));
 					goto out;
 				}
-				tracemark("start sleep, TID: %d, time:%lu.%lu\n", stat->tid, now.tv_sec, now.tv_nsec);
+				tracemark("start sleep, TID: %d, time:%lu.%lu\n",
+					stat->tid, now.tv_sec, (now.tv_nsec / NSEC_PER_USEC));
 				ret = clock_nanosleep(par->clock,
 					TIMER_RELTIME, &interval, NULL);
 				if (ret != 0) {
@@ -717,7 +719,8 @@ static void *timerthread(void *param)
 					warn("clock_gettime() failed: errno %d\n", errno);
 				goto out;
 			}
-			tracemark("start sleep, TID: %d, time:%lu.%lu\n", stat->tid, now.tv_sec, now.tv_nsec);
+			tracemark("start sleep, TID: %d, time:%lu.%lu\n",
+				stat->tid, now.tv_sec, (now.tv_nsec / NSEC_PER_USEC));
 			if (nanosleep(&interval, NULL)) {
 				if (errno != EINTR)
 					warn("nanosleep failed. errno: %d\n",
@@ -767,7 +770,8 @@ static void *timerthread(void *param)
 		if (duration && (calcdiff(now, stop) >= 0))
 			shutdown++;
 
-		tracemark("end sleep, TID: %d, time:%lu.%lu, diff:%lu\n", stat->tid, now.tv_sec, now.tv_nsec, diff);
+		tracemark("end sleep, TID: %d, time:%lu.%lu, diff:%lu\n",
+				stat->tid, now.tv_sec, (now.tv_nsec / NSEC_PER_USEC), diff);
 		if (!stopped && tracelimit && (diff > tracelimit)) {
 			stopped++;
 			shutdown++;
