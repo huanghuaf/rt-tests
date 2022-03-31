@@ -106,6 +106,13 @@ extern int clock_nanosleep(clockid_t __clock_id, int __flags,
 #define MSR_SMI_COUNT		0x00000034
 #define MSR_SMI_COUNT_MASK	0xFFFFFFFF
 
+#define BUF_SIZE		4096
+
+static char *sched_event[] = {
+	"sched/sched_switch",
+	"sched/sched_wakeup",
+};
+
 static char *policyname(int policy);
 
 /* Struct to transfer parameters to the thread */
@@ -149,6 +156,10 @@ struct thread_stat {
 	unsigned long smi_count;
 };
 
+struct log_thread_param {
+	char *path;
+};
+
 static pthread_mutex_t trigger_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static int trigger = 0;	/* Record spikes > trigger, 0 means don't record */
@@ -189,6 +200,7 @@ static int check_clock_resolution;
 static int ct_debug;
 static int use_fifo = 0;
 static pthread_t fifo_threadid;
+static pthread_t logstore_threadid;
 static int laptop = 0;
 static int power_management = 0;
 static int use_histfile = 0;
@@ -488,6 +500,43 @@ static int has_smi_counter(void)
 }
 #endif
 
+//static void *logstore(void *param)
+//{
+//	int trace_pipe_fd = -1;
+//	int cyclictest_log_fd = -1;
+//	struct log_thread_param *log_param = (struct log_thread_param *)param;
+//	char buf[BUF_SIZE];
+//	ssize_t r_size, w_size;
+//	char *p
+//
+//	trace_pipe_fd = open_trace_pipe_fd();
+//	if (trace_pipe_fd < 0) {
+//		warn("Open trace pipe file fail\n");
+//		return trace_pipe_fd;
+//	}
+//	/* file path form cmdline ?*/
+//	cyclictest_log_fd = open(log_param->path, O_WRONLY|O_CREAT);
+//	if (cyclictest_log_fd < 0) {
+//		warn("Create %s fail\n", log_param->path);
+//		close(trace_pipe_fd);
+//		return cyclictest_log_fd;
+//	}
+//
+//	while (readline(trace_pipe_fd, buf)) {
+//		w_size = write(cyclictest_log_fd, buf, r_size);
+//		if (w_size < 0) {
+//			warn("write log file error\n");
+//			break;
+//		}
+//		fsync(cyclictest_log_fd);
+//		usleep(1000);
+//	}
+//
+//	close(trace_pipe_fd);
+//	close(cyclictest_log_fd);
+//	return 0;
+//}
+
 /*
  * timer thread
  *
@@ -632,6 +681,7 @@ static void *timerthread(void *param)
 
 		case MODE_CLOCK_NANOSLEEP:
 			if (par->timermode == TIMER_ABSTIME) {
+				tracemark("start sleep, TID: %d, time:%lu.%lu\n", stat->tid, now.tv_sec, now.tv_nsec);
 				ret = clock_nanosleep(par->clock, TIMER_ABSTIME,
 						      &next, NULL);
 				if (ret != 0) {
@@ -646,6 +696,7 @@ static void *timerthread(void *param)
 						warn("clock_gettime() failed: %s", strerror(errno));
 					goto out;
 				}
+				tracemark("start sleep, TID: %d, time:%lu.%lu\n", stat->tid, now.tv_sec, now.tv_nsec);
 				ret = clock_nanosleep(par->clock,
 					TIMER_RELTIME, &interval, NULL);
 				if (ret != 0) {
@@ -666,6 +717,7 @@ static void *timerthread(void *param)
 					warn("clock_gettime() failed: errno %d\n", errno);
 				goto out;
 			}
+			tracemark("start sleep, TID: %d, time:%lu.%lu\n", stat->tid, now.tv_sec, now.tv_nsec);
 			if (nanosleep(&interval, NULL)) {
 				if (errno != EINTR)
 					warn("nanosleep failed. errno: %d\n",
@@ -715,6 +767,7 @@ static void *timerthread(void *param)
 		if (duration && (calcdiff(now, stop) >= 0))
 			shutdown++;
 
+		tracemark("end sleep, TID: %d, time:%lu.%lu, diff:%lu\n", stat->tid, now.tv_sec, now.tv_nsec, diff);
 		if (!stopped && tracelimit && (diff > tracelimit)) {
 			stopped++;
 			shutdown++;
@@ -723,6 +776,7 @@ static void *timerthread(void *param)
 				break_thread_id = stat->tid;
 				tracemark("hit latency threshold (%llu > %d)",
 					  (unsigned long long) diff, tracelimit);
+				stop_trace();
 				break_thread_value = diff;
 			}
 			pthread_mutex_unlock(&break_thread_id_lock);
@@ -1812,6 +1866,7 @@ int main(int argc, char **argv)
 	int online_cpus = sysconf(_SC_NPROCESSORS_ONLN);
 	int i, ret = -1;
 	int status;
+//	struct log_thread_param *log_thread_parameters;
 
 	rt_init(argc, argv);
 	process_options(argc, argv, max_cpus);
@@ -1853,8 +1908,23 @@ int main(int argc, char **argv)
 	/* use the /dev/cpu_dma_latency trick if it's there */
 	set_latency_target();
 
-	if (tracelimit && trace_marker)
+	if (tracelimit && trace_marker) {
 		enable_trace_mark();
+		for (i = 0; i < ARRAY_SIZE(sched_event); i++) {
+			if (event_enable(sched_event[i])) {
+				warn("Enable sched event fail!, event:%s\n", sched_event[i]);
+			}
+		}
+//		log_thread_parameters = calloc(1, sizeof(struct log_thread_param));
+//		if (!log_thread_parameters) {
+//			warn("alloc memory fail!\n");
+//			goto out;
+//		}
+//		log_thread_parameters->path = "./cyclictest.log";
+//		status = pthread_create(&logstore_threadid, NULL, logstore, (void *)log_thread_parameters);
+//		if (status)
+//			fatal("failed to create logstore thread: %s\n", strerror(status));
+	}
 
 	if (check_timer())
 		warn("High resolution timers not available\n");
@@ -2180,6 +2250,9 @@ int main(int argc, char **argv)
 			threadfree(statistics[i]->values, VALBUF_SIZE*sizeof(long), parameters[i]->node);
 	}
 
+	if (logstore_threadid)
+		pthread_join(logstore_threadid, NULL);
+
 	if (trigger)
 		trigger_print();
 
@@ -2216,6 +2289,11 @@ int main(int argc, char **argv)
 	/* close any tracer file descriptors */
 	disable_trace_mark();
 
+	for (i = 0; i < ARRAY_SIZE(sched_event); i++) {
+		if (event_disable(sched_event[i])) {
+			warn("Disnable sched event fail!, event:%s\n", sched_event[i]);
+		}
+	}
 	/* unlock everything */
 	if (lockall)
 		munlockall();

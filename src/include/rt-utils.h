@@ -22,6 +22,10 @@ int event_disable(char *event);
 int event_enable_all(void);
 int event_disable_all(void);
 
+int open_trace_pipe_fd(void);
+void close_trace_pipe_fd(int fd);
+void stop_trace(void);
+
 const char *policy_to_string(int policy);
 uint32_t string_to_policy(const char *str);
 

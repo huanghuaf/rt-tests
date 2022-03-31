@@ -400,6 +400,26 @@ int parse_mem_string(char *str, uint64_t *val)
 	return 0;
 }
 
+int open_trace_pipe_fd(void)
+{
+	int fd;
+	char path[MAX_PATH];
+
+	sprintf(path, "%s/%s", fileprefix, "trace_pipe");
+	fd = open(path, O_WRONLY);
+	if (fd < 0) {
+		warn("unable to open trace_marker file: %s\n", path);
+		return fd;
+	}
+	return fd;
+}
+
+void close_trace_pipe_fd(int fd)
+{
+	if (fd > 0)
+		close(fd);
+}
+
 static void open_tracemark_fd(void)
 {
 	char path[MAX_PATH];
@@ -474,9 +494,13 @@ void tracemark(char *fmt, ...)
 
 	/* write the tracemark message */
 	write(tracemark_fd, tracebuf, len);
+}
 
+void stop_trace(void)
+{
 	/* now stop any trace */
 	write(trace_fd, "0\n", 2);
+
 }
 
 void enable_trace_mark(void)
