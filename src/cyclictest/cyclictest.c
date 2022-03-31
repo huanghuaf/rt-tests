@@ -2290,6 +2290,7 @@ int main(int argc, char **argv)
 		threadfree(parameters[i], sizeof(struct thread_param), parameters[i]->node);
 	}
  out:
+	stop_trace();
 	/* close any tracer file descriptors */
 	disable_trace_mark();
 
