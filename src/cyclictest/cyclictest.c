@@ -770,6 +770,8 @@ static void *timerthread(void *param)
 		if (duration && (calcdiff(now, stop) >= 0))
 			shutdown++;
 
+		tracemark("nano sleep, TID: %d, time:%lu.%lu\n",
+				stat->tid, next.tv_sec, (next.tv_nsec / NSEC_PER_USEC));
 		tracemark("end sleep, TID: %d, time:%lu.%lu, diff:%lu\n",
 				stat->tid, now.tv_sec, (now.tv_nsec / NSEC_PER_USEC), diff);
 		if (!stopped && tracelimit && (diff > tracelimit)) {
