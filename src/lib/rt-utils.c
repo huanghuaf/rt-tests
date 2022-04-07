@@ -514,6 +514,38 @@ void disable_trace_mark(void)
 	close_tracemark_fd();
 }
 
+int set_trace_cpumask(unsigned mask)
+{
+	int fd = 0;
+	char path[MAX_PATH];
+	char *prefix = get_debugfileprefix();
+	ssize_t w_size;
+
+	if (!trace_file_exists("tracing_cpumask")) {
+		warn("tracing_cpumask not found\n" "debug fs not mounted");
+		return -EINVAL;
+	}
+
+	sprintf(path, "%s/%s", prefix, "tracing_cpumask");
+
+	fd = open(path, O_WRONLY);
+	if (fd < 0) {
+		warn("unable to open tracing_cpumask file: %s\n", path);
+		return fd;
+	}
+
+	memset(path, 0, MAX_PATH);
+	sprintf(path, "%u", mask);
+	w_size = write(fd, path, strlen(path));
+	if (w_size < 0) {
+		close(fd);
+		return -EINVAL;
+	}
+
+	close(fd);
+	return 0;
+}
+
 static void get_timestamp(char *tsbuf)
 {
 	struct timeval tv;

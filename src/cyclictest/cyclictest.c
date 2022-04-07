@@ -186,6 +186,7 @@ static void trigger_update(struct thread_param *par, int diff, int64_t ts);
 static int shutdown;
 static int tracelimit = 0;
 static int trace_marker = 0;
+static unsigned cpumask = -1U;
 static int verbose = 0;
 static int oscope_reduction = 1;
 static int lockall = 0;
@@ -940,6 +941,7 @@ static void display_help(int error)
 	       "                           format: n:c:v n=tasknum c=count v=value in us\n"
 	       "	 --dbg_cyclictest  print info useful for debugging cyclictest\n"
 	       "-x	 --posix_timers    use POSIX timers instead of clock_nanosleep.\n"
+	       "         --trace_cpumask   set trace_cpumask when -b latency is exceeded\n"
 		);
 	if (error)
 		exit(EXIT_FAILURE);
@@ -1019,7 +1021,7 @@ enum option_values {
 	OPT_TRIGGER_NODES, OPT_UNBUFFERED, OPT_NUMA, OPT_VERBOSE,
 	OPT_DBGCYCLIC, OPT_POLICY, OPT_HELP, OPT_NUMOPTS,
 	OPT_ALIGNED, OPT_SECALIGNED, OPT_LAPTOP, OPT_SMI,
-	OPT_TRACEMARK, OPT_POSIX_TIMERS,
+	OPT_TRACEMARK, OPT_POSIX_TIMERS, OPT_TRACE_CPUMASK,
 };
 
 /* Process commandline options */
@@ -1075,6 +1077,7 @@ static void process_options(int argc, char *argv[], int max_cpus)
 			{"policy",           required_argument, NULL, OPT_POLICY },
 			{"help",             no_argument,       NULL, OPT_HELP },
 			{"posix_timers",     no_argument,	NULL, OPT_POSIX_TIMERS },
+			{"trace_cpumask",    required_argument,	NULL, OPT_TRACE_CPUMASK },
 			{NULL, 0, NULL, 0 },
 		};
 		int c = getopt_long(argc, argv, "a::A::b:c:d:D:F:h:H:i:l:MNo:p:mqrRsSt::uvD:x",
@@ -1273,6 +1276,12 @@ static void process_options(int argc, char *argv[], int max_cpus)
 			break;
 		case OPT_TRACEMARK:
 			trace_marker = 1; break;
+		case OPT_TRACE_CPUMASK:
+			if (optarg != NULL)
+				cpumask = strtoul(optarg, NULL, 16);
+			if (!cpumask)
+				cpumask = -1U;
+			break;
 		}
 	}
 
@@ -1921,6 +1930,9 @@ int main(int argc, char **argv)
 				warn("Enable sched event fail!, event:%s\n", sched_event[i]);
 			}
 		}
+		if (set_trace_cpumask(cpumask)) {
+			warn("set cpu trace mask error\n");
+		}
 //		log_thread_parameters = calloc(1, sizeof(struct log_thread_param));
 //		if (!log_thread_parameters) {
 //			warn("alloc memory fail!\n");
@@ -2295,6 +2307,9 @@ int main(int argc, char **argv)
 	stop_trace();
 	/* close any tracer file descriptors */
 	disable_trace_mark();
+	if (set_trace_cpumask(-1U)) {
+		warn("restore cpu trace mask error\n");
+	}
 
 	for (i = 0; i < ARRAY_SIZE(sched_event); i++) {
 		if (event_disable(sched_event[i])) {
