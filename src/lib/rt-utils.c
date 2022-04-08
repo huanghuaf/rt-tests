@@ -496,11 +496,16 @@ void tracemark(char *fmt, ...)
 	write(tracemark_fd, tracebuf, len);
 }
 
+void start_trace(void)
+{
+	/* now start any trace */
+	write(trace_fd, "1\n", 2);
+}
+
 void stop_trace(void)
 {
 	/* now stop any trace */
 	write(trace_fd, "0\n", 2);
-
 }
 
 void enable_trace_mark(void)

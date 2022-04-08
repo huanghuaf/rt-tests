@@ -1933,6 +1933,8 @@ int main(int argc, char **argv)
 		if (set_trace_cpumask(cpumask)) {
 			warn("set cpu trace mask error\n");
 		}
+		tracemark("----------------start trace-------------\n");
+		start_trace();
 //		log_thread_parameters = calloc(1, sizeof(struct log_thread_param));
 //		if (!log_thread_parameters) {
 //			warn("alloc memory fail!\n");
